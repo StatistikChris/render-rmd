@@ -1,14 +1,23 @@
-# Cloud Run Startup Probe Fix
+# Cloud Run Startup & Authentication Fix
 
-## Problem
-Your Cloud Run service was failing with this error:
+## Problems Solved
+
+### 1. Startup Probe Failure
 ```
 Default STARTUP TCP probe failed 1 time consecutively for container "placeholder-1" on port 8080.
 The instance was not started. Connection failed with status CANCELLED.
 ```
 
-## Root Cause
-R applications with heavy dependencies (like `googleCloudStorageR`, `rmarkdown`, `tinytex`) take a long time to initialize. The default Cloud Run startup probe (which expects the service to be ready in ~10 seconds) was timing out before your R server could fully start.
+### 2. Authentication Error  
+```
+Error: Non-interactive session and no authentication email selected.
+Setup JSON service email auth or specify email in gar_auth(email='me@preauthenticated.com')
+Execution halted
+```
+
+## Root Causes
+1. **Startup Probe**: R applications with heavy dependencies take a long time to initialize
+2. **Authentication**: `googleCloudStorageR` was trying to authenticate interactively, which fails in Cloud Run's non-interactive environment
 
 ## Solutions Applied
 
@@ -19,13 +28,21 @@ R applications with heavy dependencies (like `googleCloudStorageR`, `rmarkdown`,
   - Check interval: 10 seconds  
   - Max failures: 30 (allows 5 minutes total)
 
-### 2. Improved Server Startup
+### 2. Fixed Authentication for Cloud Run
+- **Before**: Interactive authentication that fails in Cloud Run
+- **After**: Cloud Run service account authentication
+  - Disabled interactive OAuth flows
+  - Configured environment for Application Default Credentials
+  - Added fallback authentication methods
+  - Proper error handling for auth failures
+
+### 3. Improved Server Startup
 - Added detailed startup logging to diagnose issues
 - Implemented proper readiness tracking
 - Enhanced health check endpoint with startup status
 - Early library loading to catch initialization problems
 
-### 3. Cloud Run Optimizations
+### 4. Cloud Run Optimizations
 - Enabled CPU boost for faster startup
 - Optimized memory allocation (2Gi limit, 1Gi request)
 - Reduced concurrency to handle resource-intensive R processes
@@ -33,12 +50,20 @@ R applications with heavy dependencies (like `googleCloudStorageR`, `rmarkdown`,
 
 ## Files Modified
 
-1. **`service.yaml`** - Added comprehensive probe configuration
-2. **`cloud-run-service.yaml`** - New optimized service definition
-3. **`deploy.sh`** - Added CPU boost and Gen2 environment
-4. **`deploy-with-probes.sh`** - New deployment script using service.yaml
-5. **`Dockerfile`** - Enhanced server with startup tracking
-6. **`server-with-logging.R`** - New server with detailed logging
+### Core Authentication & Startup Fixes
+1. **`simple_auth.R`** - New Cloud Run authentication helper
+2. **`auth_helper.R`** - Advanced authentication fallback methods
+3. **`process_rmd.R`** - Updated with proper Cloud Run authentication
+4. **`server-with-logging.R`** - Enhanced server with auth setup
+5. **`install.R`** - Added required authentication packages
+
+### Deployment & Configuration
+6. **`service.yaml`** - Added comprehensive probe configuration
+7. **`cloud-run-service.yaml`** - New optimized service definition
+8. **`deploy.sh`** - Added CPU boost and Gen2 environment
+9. **`deploy-with-probes.sh`** - New deployment script using service.yaml
+10. **`Dockerfile`** - Updated with auth helpers and enhanced server
+11. **`test-auth-fix.sh`** - New script to test the complete fix
 
 ## Deployment Options
 

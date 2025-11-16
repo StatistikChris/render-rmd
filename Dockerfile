@@ -36,11 +36,13 @@ RUN apt-get update && apt-get install -y \
 COPY install.R /app/install.R
 RUN Rscript /app/install.R
 
-# Copy the main processing script
+# Copy the authentication helpers and main processing script
+COPY simple_auth.R /app/simple_auth.R
+COPY auth_helper.R /app/auth_helper.R  
 COPY process_rmd.R /app/process_rmd.R
 
-# Make the script executable
-RUN chmod +x /app/process_rmd.R
+# Make the scripts executable
+RUN chmod +x /app/simple_auth.R /app/auth_helper.R /app/process_rmd.R
 
 # Create a simple HTTP server script for Cloud Run
 RUN echo '#!/usr/bin/env Rscript\n\

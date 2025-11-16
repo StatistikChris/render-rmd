@@ -9,11 +9,13 @@ required_packages <- c(
   "knitr",         # Required by rmarkdown
   "tinytex",       # Lightweight LaTeX distribution for PDF generation
   "googleCloudStorageR",  # Google Cloud Storage client
+  "googleAuthR",   # Google authentication (required for GCS auth)
   "httr",          # HTTP requests (dependency for googleCloudStorageR)
   "jsonlite",      # JSON parsing (dependency for googleCloudStorageR)
   "curl",          # URL handling
   "openssl",       # Cryptographic functions
-  "base64enc"      # Base64 encoding/decoding
+  "base64enc",     # Base64 encoding/decoding
+  "httpuv"         # HTTP server for Cloud Run
 )
 
 # Function to install packages if not already installed

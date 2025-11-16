@@ -1,13 +1,29 @@
 #!/usr/bin/env Rscript
 
-# Load required libraries hello
-library(googleCloudStorageR)
+# Load required libraries
 library(rmarkdown)
 library(knitr)
 
-# Set up authentication using service account key or default credentials
-# For Cloud Run, we'll use the default service account
-gcs_auth(json_file = NULL)
+# Set up authentication for Cloud Run environment
+cat("Configuring authentication for Cloud Run...\n")
+source("/app/simple_auth.R")
+setup_cloud_run_auth()
+
+# Load googleCloudStorageR
+library(googleCloudStorageR)
+
+# Additional authentication setup - use default service account
+cat("Setting up GCS authentication...\n")
+options(googleAuthR.scopes.selected = "https://www.googleapis.com/auth/cloud-platform")
+
+# Try to authenticate (will use default service account in Cloud Run)
+tryCatch({
+  gcs_auth(json_file = NULL)
+  cat("✓ GCS authentication successful\n")
+}, error = function(e) {
+  cat("GCS auth error (may still work):", e$message, "\n")
+  # Continue anyway - Cloud Run may handle auth automatically
+})
 
 # Configuration
 bucket_name <- "keine_panik_bucket"

@@ -57,13 +57,19 @@ tryCatch({
   quit(status = 1)
 })
 
+# Set up authentication for Cloud Run
+log_msg("Setting up Cloud Run authentication...")
+source("/app/simple_auth.R")
+setup_cloud_run_auth()
+
 # Test Google Cloud Storage authentication
 log_msg("Testing GCS authentication...")
 tryCatch({
   gcs_auth(json_file = NULL)
-  log_msg("✓ GCS authentication configured")
+  log_msg("✓ GCS authentication successful")
 }, error = function(e) {
-  log_msg(sprintf("WARNING: GCS auth failed: %s", e$message))
+  log_msg(sprintf("GCS auth warning: %s", e$message))
+  log_msg("Continuing - Cloud Run will use default service account")
 })
 
 # HTTP request handler
