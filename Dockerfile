@@ -28,13 +28,6 @@ RUN apt-get update && apt-get install -y \
     wget \
     curl \
     ca-certificates \
-    # Google Cloud SDK for gsutil
-    apt-transport-https \
-    gnupg \
-    lsb-release \
-    && echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list \
-    && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key --keyring /usr/share/keyrings/cloud.google.gpg add - \
-    && apt-get update && apt-get install -y google-cloud-cli \
     # Clean up
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
@@ -49,111 +42,19 @@ COPY auth_helper.R /app/auth_helper.R
 COPY minimal_auth.R /app/minimal_auth.R
 COPY process_rmd.R /app/process_rmd.R
 COPY process_rmd_minimal.R /app/process_rmd_minimal.R
+COPY process_rmd_http.R /app/process_rmd_http.R
 
 # Make the scripts executable
 RUN chmod +x /app/*.R
 
-# Create a simple HTTP server script for Cloud Run
-RUN echo '#!/usr/bin/env Rscript\n\
-library(httpuv)\n\
-library(jsonlite)\n\
-\n\
-# Initialize libraries early to catch any loading issues\n\
-cat("Loading required libraries...\\n")\n\
-library(googleCloudStorageR)\n\
-library(rmarkdown)\n\
-library(knitr)\n\
-cat("Libraries loaded successfully\\n")\n\
-\n\
-# Source the main processing script\n\
-cat("Loading processing script...\\n")\n\
-source("/app/process_rmd.R")\n\
-cat("Processing script loaded\\n")\n\
-\n\
-# Track server readiness\n\
-server_ready <- FALSE\n\
-\n\
-# Simple HTTP handler\n\
-handle_request <- function(req) {\n\
-  if (req$REQUEST_METHOD == "GET" && req$PATH_INFO == "/health") {\n\
-    # Health check endpoint - always respond quickly\n\
-    if (server_ready) {\n\
-      list(\n\
-        status = 200L,\n\
-        headers = list("Content-Type" = "application/json"),\n\
-        body = jsonlite::toJSON(list(status = "healthy", ready = TRUE))\n\
-      )\n\
-    } else {\n\
-      list(\n\
-        status = 200L,\n\
-        headers = list("Content-Type" = "application/json"),\n\
-        body = jsonlite::toJSON(list(status = "starting", ready = FALSE))\n\
-      )\n\
-    }\n\
-  } else if (req$REQUEST_METHOD == "POST" && req$PATH_INFO == "/process") {\n\
-    if (!server_ready) {\n\
-      list(\n\
-        status = 503L,\n\
-        headers = list("Content-Type" = "application/json"),\n\
-        body = jsonlite::toJSON(list(message = "Server is still starting up", status = "unavailable"))\n\
-      )\n\
-    } else {\n\
-      # Run the PDF processing\n\
-      result <- process_rmd_to_pdf()\n\
-      \n\
-      if (result$status == "success") {\n\
-        list(\n\
-          status = 200L,\n\
-          headers = list("Content-Type" = "application/json"),\n\
-          body = jsonlite::toJSON(list(message = result$message, status = "success"))\n\
-        )\n\
-      } else {\n\
-        list(\n\
-          status = 500L,\n\
-          headers = list("Content-Type" = "application/json"),\n\
-          body = jsonlite::toJSON(list(message = result$message, status = "error"))\n\
-        )\n\
-      }\n\
-    }\n\
-  } else {\n\
-    # Default response\n\
-    list(\n\
-      status = 200L,\n\
-      headers = list("Content-Type" = "application/json"),\n\
-      body = jsonlite::toJSON(list(\n\
-        message = "RMD to PDF Service",\n\
-        ready = server_ready,\n\
-        endpoints = list(\n\
-          "POST /process" = "Process RMD file to PDF",\n\
-          "GET /health" = "Health check"\n\
-        )\n\
-      ))\n\
-    )\n\
-  }\n\
-}\n\
-\n\
-# Get port from environment variable (Cloud Run provides this)\n\
-port <- as.integer(Sys.getenv("PORT", "8080"))\n\
-\n\
-cat("Starting server on port", port, "\\n")\n\
-\n\
-# Start the server with a callback to mark it as ready\n\
-cat("Server initialization complete, marking as ready\\n")\n\
-server_ready <<- TRUE\n\
-\n\
-# Start the server\n\
-runServer("0.0.0.0", port, list(call = handle_request))' > /app/server.R
-
-# Make the server script executable
-RUN chmod +x /app/server.R
+# Copy all server scripts
+COPY server-with-logging.R /app/server-with-logging.R
+COPY server-minimal.R /app/server-minimal.R
+COPY server-simple.R /app/server-simple.R
+RUN chmod +x /app/server-*.R
 
 # Expose the port
 EXPOSE 8080
 
-# Copy both server scripts
-COPY server-with-logging.R /app/server-with-logging.R
-COPY server-minimal.R /app/server-minimal.R
-RUN chmod +x /app/server-*.R
-
-# Set the default command to run the minimal server (no auth issues)
-CMD ["Rscript", "/app/server-minimal.R"]
+# Set the default command to run the simple server (avoids build issues)
+CMD ["Rscript", "/app/server-simple.R"]

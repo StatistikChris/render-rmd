@@ -110,16 +110,6 @@ process_rmd_to_pdf <- function() {
   })
 }
 
-# Execute the main function if script is run directly
-if (!interactive()) {
-  result <- process_rmd_to_pdf()
-  
-  # Exit with appropriate code
-  if (result$status == "success") {
-    cat("SUCCESS: ", result$message, "\n")
-    quit(status = 0)
-  } else {
-    cat("ERROR: ", result$message, "\n")
-    quit(status = 1)
-  }
-}
+# This script should not be run directly when used with the HTTP server
+# The main function process_rmd_to_pdf() will be called by the server
+# Removing quit() calls to prevent container exit issues
