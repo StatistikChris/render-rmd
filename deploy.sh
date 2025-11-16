@@ -6,7 +6,7 @@ set -e  # Exit on any error
 
 # Configuration
 PROJECT_ID="${GOOGLE_CLOUD_PROJECT_ID:-your-project-id}"
-REGION="${REGION:-us-central1}"
+REGION="${REGION:-europe-west1}"
 SERVICE_NAME="${SERVICE_NAME:-rmd-to-pdf-service}"
 IMAGE_NAME="gcr.io/${PROJECT_ID}/${SERVICE_NAME}"
 
