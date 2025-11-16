@@ -23,14 +23,22 @@ log_message <- function(message) {
 # Get access token from metadata server (Cloud Run)
 get_access_token <- function() {
   tryCatch({
+    log_message("Fetching access token from metadata server...")
     response <- GET(
       "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token",
-      add_headers("Metadata-Flavor" = "Google")
+      add_headers("Metadata-Flavor" = "Google"),
+      timeout(30)
     )
+    log_message(sprintf("Token response status: %d", status_code(response)))
+    
     if (status_code(response) == 200) {
       token_data <- content(response, "parsed")
-      return(token_data$access_token)
+      if (!is.null(token_data$access_token)) {
+        log_message("✓ Access token obtained successfully")
+        return(token_data$access_token)
+      }
     }
+    log_message("Failed to get valid access token")
     return(NULL)
   }, error = function(e) {
     log_message(paste("Token fetch error:", e$message))
@@ -42,19 +50,37 @@ get_access_token <- function() {
 download_from_gcs_http <- function(bucket, object, local_path) {
   token <- get_access_token()
   if (is.null(token)) {
-    log_message("No access token available")
+    log_message("ERROR: No access token available for download")
     return(FALSE)
   }
   
   url <- sprintf("https://storage.googleapis.com/storage/v1/b/%s/o/%s?alt=media", bucket, URLencode(object))
+  log_message(sprintf("Download URL: %s", url))
   
   tryCatch({
+    log_message("Attempting to download file...")
     response <- GET(
       url,
       add_headers("Authorization" = paste("Bearer", token)),
-      write_disk(local_path, overwrite = TRUE)
+      write_disk(local_path, overwrite = TRUE),
+      timeout(60)
     )
-    return(status_code(response) == 200)
+    
+    status <- status_code(response)
+    log_message(sprintf("Download response status: %d", status))
+    
+    if (status == 200) {
+      log_message("✓ File downloaded successfully")
+      return(TRUE)
+    } else {
+      log_message(sprintf("Download failed with status %d", status))
+      if (status == 404) {
+        log_message("File not found in bucket")
+      } else if (status == 403) {
+        log_message("Access denied - check permissions")
+      }
+      return(FALSE)
+    }
   }, error = function(e) {
     log_message(paste("Download error:", e$message))
     return(FALSE)
@@ -65,22 +91,45 @@ download_from_gcs_http <- function(bucket, object, local_path) {
 upload_to_gcs_http <- function(local_path, bucket, object) {
   token <- get_access_token()
   if (is.null(token)) {
-    log_message("No access token available")
+    log_message("ERROR: No access token available for upload")
     return(FALSE)
   }
   
+  if (!file.exists(local_path)) {
+    log_message(sprintf("ERROR: Local file does not exist: %s", local_path))
+    return(FALSE)
+  }
+  
+  file_size <- file.info(local_path)$size
+  log_message(sprintf("Uploading file: %s (%d bytes)", local_path, file_size))
+  
   url <- sprintf("https://storage.googleapis.com/upload/storage/v1/b/%s/o?uploadType=media&name=%s", bucket, URLencode(object))
+  log_message(sprintf("Upload URL: %s", url))
   
   tryCatch({
+    log_message("Attempting to upload file...")
     response <- POST(
       url,
       add_headers(
         "Authorization" = paste("Bearer", token),
         "Content-Type" = "application/pdf"
       ),
-      body = upload_file(local_path)
+      body = upload_file(local_path),
+      timeout(120)
     )
-    return(status_code(response) %in% c(200, 201))
+    
+    status <- status_code(response)
+    log_message(sprintf("Upload response status: %d", status))
+    
+    if (status %in% c(200, 201)) {
+      log_message("✓ File uploaded successfully")
+      return(TRUE)
+    } else {
+      log_message(sprintf("Upload failed with status %d", status))
+      response_text <- content(response, "text")
+      log_message(sprintf("Response: %s", response_text))
+      return(FALSE)
+    }
   }, error = function(e) {
     log_message(paste("Upload error:", e$message))
     return(FALSE)

@@ -58,6 +58,26 @@ handle_request <- function(req) {
       ), auto_unbox = TRUE)
     )
     
+  } else if (req$REQUEST_METHOD == "GET" && req$PATH_INFO == "/test-auth") {
+    # Test authentication endpoint
+    log_msg("Testing authentication...")
+    token <- tryCatch({
+      source("/app/process_rmd_http.R")
+      get_access_token()
+    }, error = function(e) {
+      paste("Error:", e$message)
+    })
+    
+    list(
+      status = 200L,
+      headers = list("Content-Type" = "application/json"),
+      body = jsonlite::toJSON(list(
+        message = "Authentication test",
+        has_token = !is.null(token) && !grepl("Error:", token),
+        token_length = if(is.null(token) || grepl("Error:", token)) 0 else nchar(token)
+      ), auto_unbox = TRUE)
+    )
+    
   } else if (req$REQUEST_METHOD == "POST" && req$PATH_INFO == "/process") {
     if (!server_ready) {
       list(
@@ -95,6 +115,7 @@ handle_request <- function(req) {
         method = "http_api",
         endpoints = list(
           "GET /health" = "Health check",
+          "GET /test-auth" = "Test authentication",
           "POST /process" = "Process RMD file to PDF using HTTP API"
         )
       ), auto_unbox = TRUE)
