@@ -98,16 +98,6 @@ process_rmd_to_pdf_minimal <- function() {
   })
 }
 
-# Execute the main function if script is run directly
-if (!interactive()) {
-  result <- process_rmd_to_pdf_minimal()
-  
-  # Exit with appropriate code
-  if (result$status == "success") {
-    cat("SUCCESS: ", result$message, "\n")
-    quit(status = 0)
-  } else {
-    cat("ERROR: ", result$message, "\n")
-    quit(status = 1)
-  }
-}
+# This script is designed to be sourced by server-minimal.R
+# It should not be run directly to avoid container exit issues
+# The main function process_rmd_to_pdf_minimal() will be called by the HTTP server

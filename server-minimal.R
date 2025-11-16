@@ -140,9 +140,16 @@ log_msg("=== Server initialization complete (minimal version) ===")
 log_msg(sprintf("Server ready on http://0.0.0.0:%d", port))
 
 # Start the HTTP server
+log_msg("Attempting to start HTTP server...")
 tryCatch({
+  log_msg("HTTP server starting - this should keep the container alive")
   runServer("0.0.0.0", port, list(call = handle_request))
+  log_msg("WARNING: HTTP server stopped unexpectedly")
 }, error = function(e) {
   log_msg(sprintf("FATAL: Server failed to start: %s", e$message))
   quit(status = 1)
 })
+
+# This line should never be reached if the server is running properly
+log_msg("ERROR: Server exited - this should not happen")
+quit(status = 1)
