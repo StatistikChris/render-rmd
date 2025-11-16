@@ -1,31 +1,10 @@
 #!/usr/bin/env Rscript
 
-# Load required libraries (no authentication yet)
+# process_rmd_minimal.R - RMD processing with minimal dependencies
+
+# Load only essential libraries
 library(rmarkdown)
 library(knitr)
-
-# Function to initialize GCS authentication
-init_gcs_auth <- function() {
-  cat("Initializing GCS authentication...\n")
-  
-  # Set up Cloud Run authentication environment
-  source("/app/simple_auth.R")
-  setup_cloud_run_auth()
-  
-  # Load googleCloudStorageR after environment setup
-  library(googleCloudStorageR)
-  
-  # Try to authenticate
-  tryCatch({
-    gcs_auth(json_file = NULL)
-    cat("✓ GCS authentication successful\n")
-    return(TRUE)
-  }, error = function(e) {
-    cat("GCS auth error:", e$message, "\n")
-    cat("Will attempt operations without explicit auth (using Cloud Run default)\n")
-    return(FALSE)
-  })
-}
 
 # Configuration
 bucket_name <- "keine_panik_bucket"
@@ -39,29 +18,35 @@ log_message <- function(message) {
   cat(paste(Sys.time(), "-", message, "\n"))
 }
 
-# Main processing function
-process_rmd_to_pdf <- function() {
+# Download file using gsutil (works with Cloud Run service account)
+download_from_gcs <- function(bucket, object, local_path) {
+  cmd <- sprintf("gsutil cp gs://%s/%s %s", bucket, object, local_path)
+  result <- system(cmd, intern = TRUE)
+  return(length(result) == 0 || !any(grepl("ERROR", result)))
+}
+
+# Upload file using gsutil
+upload_to_gcs <- function(local_path, bucket, object) {
+  cmd <- sprintf("gsutil cp %s gs://%s/%s", local_path, bucket, object)
+  result <- system(cmd, intern = TRUE)
+  return(length(result) == 0 || !any(grepl("ERROR", result)))
+}
+
+# Main processing function using gsutil
+process_rmd_to_pdf_minimal <- function() {
   tryCatch({
-    log_message("Starting RMD to PDF conversion process")
+    log_message("Starting RMD to PDF conversion process (minimal version)")
     
-    # Initialize GCS authentication if not already done
-    if (!exists("gcs_auth_initialized", envir = .GlobalEnv)) {
-      init_gcs_auth()
-      assign("gcs_auth_initialized", TRUE, envir = .GlobalEnv)
+    # Download the RMD file from Google Cloud Storage using gsutil
+    log_message(paste("Downloading", input_file, "from bucket", bucket_name, "using gsutil"))
+    
+    if (!download_from_gcs(bucket_name, input_file, local_rmd_file)) {
+      stop("Failed to download RMD file from Cloud Storage using gsutil")
     }
-    
-    # Download the RMD file from Google Cloud Storage
-    log_message(paste("Downloading", input_file, "from bucket", bucket_name))
-    gcs_get_object(
-      object_name = input_file,
-      bucket = bucket_name,
-      saveToDisk = local_rmd_file,
-      overwrite = TRUE
-    )
     
     # Check if file was downloaded successfully
     if (!file.exists(local_rmd_file)) {
-      stop("Failed to download RMD file from Cloud Storage")
+      stop("RMD file not found after download")
     }
     
     log_message(paste("Successfully downloaded", input_file, "to", local_rmd_file))
@@ -82,13 +67,12 @@ process_rmd_to_pdf <- function() {
     
     log_message(paste("Successfully rendered PDF to", local_pdf_file))
     
-    # Upload the PDF back to Google Cloud Storage
-    log_message(paste("Uploading", output_file, "to bucket", bucket_name))
-    gcs_upload(
-      file = local_pdf_file,
-      bucket = bucket_name,
-      name = output_file
-    )
+    # Upload the PDF back to Google Cloud Storage using gsutil
+    log_message(paste("Uploading", output_file, "to bucket", bucket_name, "using gsutil"))
+    
+    if (!upload_to_gcs(local_pdf_file, bucket_name, output_file)) {
+      stop("Failed to upload PDF file to Cloud Storage using gsutil")
+    }
     
     log_message(paste("Successfully uploaded", output_file, "to Cloud Storage"))
     
@@ -97,7 +81,7 @@ process_rmd_to_pdf <- function() {
     if (file.exists(local_pdf_file)) file.remove(local_pdf_file)
     
     log_message("Process completed successfully")
-    return(list(status = "success", message = "PDF generated and uploaded successfully"))
+    return(list(status = "success", message = "PDF generated and uploaded successfully using gsutil"))
     
   }, error = function(e) {
     log_message(paste("Error occurred:", e$message))
@@ -112,7 +96,7 @@ process_rmd_to_pdf <- function() {
 
 # Execute the main function if script is run directly
 if (!interactive()) {
-  result <- process_rmd_to_pdf()
+  result <- process_rmd_to_pdf_minimal()
   
   # Exit with appropriate code
   if (result$status == "success") {

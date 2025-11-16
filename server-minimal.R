@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-# server-with-logging.R - Enhanced server with detailed startup logging
+# server-minimal.R - Minimal server without authentication complexity
 
 library(httpuv)
 library(jsonlite)
@@ -11,10 +11,8 @@ log_msg <- function(msg) {
   flush.console()
 }
 
-log_msg("=== R Server Starting ===")
+log_msg("=== R Server Starting (Minimal Version) ===")
 log_msg(sprintf("R version: %s", R.version.string))
-log_msg(sprintf("Platform: %s", R.version$platform))
-log_msg(sprintf("Working directory: %s", getwd()))
 
 # Check port configuration
 port <- as.integer(Sys.getenv("PORT", "8080"))
@@ -30,9 +28,6 @@ startup_steps <- list(
 # Load packages with logging
 log_msg("Loading required packages...")
 tryCatch({
-  library(googleCloudStorageR)
-  log_msg("✓ googleCloudStorageR loaded")
-  
   library(rmarkdown)
   log_msg("✓ rmarkdown loaded")
   
@@ -46,40 +41,25 @@ tryCatch({
   quit(status = 1)
 })
 
-# Load processing script (without authentication)
-log_msg("Loading processing script...")
+# Load minimal processing script (no authentication issues)
+log_msg("Loading minimal processing script...")
 tryCatch({
-  source("/app/process_rmd.R")
+  source("/app/process_rmd_minimal.R")
   startup_steps$processing_script_loaded <- TRUE
-  log_msg("✓ Processing script loaded")
+  log_msg("✓ Minimal processing script loaded")
 }, error = function(e) {
   log_msg(sprintf("ERROR loading processing script: %s", e$message))
   quit(status = 1)
 })
 
-# Set up authentication environment for Cloud Run
-log_msg("Setting up Cloud Run authentication environment...")
-tryCatch({
-  source("/app/simple_auth.R")
-  setup_cloud_run_auth()
-  log_msg("✓ Authentication environment configured")
-}, error = function(e) {
-  log_msg(sprintf("Auth environment setup failed: %s", e$message))
-})
-
-# Test authentication by initializing it
-log_msg("Testing GCS authentication initialization...")
-tryCatch({
-  auth_result <- init_gcs_auth()
-  if (auth_result) {
-    log_msg("✓ GCS authentication test successful")
-  } else {
-    log_msg("⚠ GCS authentication had warnings but will continue")
-  }
-}, error = function(e) {
-  log_msg(sprintf("GCS auth test failed: %s", e$message))
-  log_msg("Service will attempt auth during actual operations")
-})
+# Test gsutil availability
+log_msg("Testing gsutil availability...")
+gsutil_test <- system("which gsutil", intern = TRUE)
+if (length(gsutil_test) > 0) {
+  log_msg("✓ gsutil is available for GCS operations")
+} else {
+  log_msg("⚠ gsutil not found - GCS operations may fail")
+}
 
 # HTTP request handler
 handle_request <- function(req) {
@@ -95,7 +75,8 @@ handle_request <- function(req) {
       server_ready = startup_steps$server_ready,
       uptime_seconds = as.numeric(difftime(Sys.time(), server_start_time, units = "secs")),
       r_version = R.version.string,
-      port = port
+      port = port,
+      auth_method = "gsutil_minimal"
     )
     
     list(
@@ -116,9 +97,9 @@ handle_request <- function(req) {
         ), auto_unbox = TRUE)
       )
     } else {
-      log_msg("Processing RMD to PDF request...")
+      log_msg("Processing RMD to PDF request (minimal version)...")
       result <- tryCatch({
-        process_rmd_to_pdf()
+        process_rmd_to_pdf_minimal()
       }, error = function(e) {
         log_msg(sprintf("Processing error: %s", e$message))
         list(status = "error", message = e$message)
@@ -138,11 +119,12 @@ handle_request <- function(req) {
       status = 200L,
       headers = list("Content-Type" = "application/json"),
       body = jsonlite::toJSON(list(
-        message = "RMD to PDF Service",
+        message = "RMD to PDF Service (Minimal Version)",
         server_ready = startup_steps$server_ready,
+        auth_method = "gsutil_minimal",
         endpoints = list(
           "GET /health" = "Health check with detailed status",
-          "POST /process" = "Process RMD file to PDF"
+          "POST /process" = "Process RMD file to PDF using gsutil"
         )
       ), auto_unbox = TRUE)
     )
@@ -154,7 +136,7 @@ server_start_time <- Sys.time()
 
 # Mark server as ready
 startup_steps$server_ready <- TRUE
-log_msg("=== Server initialization complete ===")
+log_msg("=== Server initialization complete (minimal version) ===")
 log_msg(sprintf("Server ready on http://0.0.0.0:%d", port))
 
 # Start the HTTP server

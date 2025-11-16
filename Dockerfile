@@ -28,6 +28,13 @@ RUN apt-get update && apt-get install -y \
     wget \
     curl \
     ca-certificates \
+    # Google Cloud SDK for gsutil
+    apt-transport-https \
+    gnupg \
+    lsb-release \
+    && echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list \
+    && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key --keyring /usr/share/keyrings/cloud.google.gpg add - \
+    && apt-get update && apt-get install -y google-cloud-cli \
     # Clean up
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
@@ -36,13 +43,15 @@ RUN apt-get update && apt-get install -y \
 COPY install.R /app/install.R
 RUN Rscript /app/install.R
 
-# Copy the authentication helpers and main processing script
+# Copy all processing scripts
 COPY simple_auth.R /app/simple_auth.R
 COPY auth_helper.R /app/auth_helper.R  
+COPY minimal_auth.R /app/minimal_auth.R
 COPY process_rmd.R /app/process_rmd.R
+COPY process_rmd_minimal.R /app/process_rmd_minimal.R
 
 # Make the scripts executable
-RUN chmod +x /app/simple_auth.R /app/auth_helper.R /app/process_rmd.R
+RUN chmod +x /app/*.R
 
 # Create a simple HTTP server script for Cloud Run
 RUN echo '#!/usr/bin/env Rscript\n\
@@ -141,9 +150,10 @@ RUN chmod +x /app/server.R
 # Expose the port
 EXPOSE 8080
 
-# Copy the enhanced server script
+# Copy both server scripts
 COPY server-with-logging.R /app/server-with-logging.R
-RUN chmod +x /app/server-with-logging.R
+COPY server-minimal.R /app/server-minimal.R
+RUN chmod +x /app/server-*.R
 
-# Set the default command to run the HTTP server with enhanced logging
-CMD ["Rscript", "/app/server-with-logging.R"]
+# Set the default command to run the minimal server (no auth issues)
+CMD ["Rscript", "/app/server-minimal.R"]

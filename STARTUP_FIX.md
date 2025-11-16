@@ -30,11 +30,11 @@ Execution halted
 
 ### 2. Fixed Authentication for Cloud Run
 - **Before**: Interactive authentication that fails in Cloud Run
-- **After**: Cloud Run service account authentication
-  - Disabled interactive OAuth flows
-  - Configured environment for Application Default Credentials
-  - Added fallback authentication methods
-  - Proper error handling for auth failures
+- **After**: Multiple authentication strategies
+  - **Minimal approach**: Uses `gsutil` directly (bypasses R auth completely)
+  - **Enhanced R auth**: Disabled interactive OAuth flows, configured ADC
+  - **Fallback methods**: Multiple authentication approaches
+  - **Proper error handling**: Graceful degradation when auth fails
 
 ### 3. Improved Server Startup
 - Added detailed startup logging to diagnose issues
@@ -67,19 +67,28 @@ Execution halted
 
 ## Deployment Options
 
-### Option 1: Quick Redeploy (Recommended)
+### Option 1: Minimal Version (Recommended for Auth Issues)
 ```bash
 # Set your project ID
-export GOOGLE_CLOUD_PROJECT_ID=your-project-id
+export GOOGLE_CLOUD_PROJECT_ID=rapid-gadget-477511-n7
+
+# Use the minimal deployment (avoids R auth complexity)
+./deploy-minimal.sh
+```
+
+### Option 2: Enhanced R Auth Version  
+```bash
+# Set your project ID
+export GOOGLE_CLOUD_PROJECT_ID=rapid-gadget-477511-n7
 
 # Use the enhanced deployment script
 ./deploy-with-probes.sh
 ```
 
-### Option 2: Standard Deploy with New Settings
+### Option 3: Standard Deploy with New Settings
 ```bash
 # Set your project ID
-export GOOGLE_CLOUD_PROJECT_ID=your-project-id
+export GOOGLE_CLOUD_PROJECT_ID=rapid-gadget-477511-n7
 
 # Use the updated standard deployment
 ./deploy.sh
