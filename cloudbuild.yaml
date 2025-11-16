@@ -30,19 +30,22 @@ steps:
     id: 'push-latest'
     waitFor: ['build-image']
 
-  # Step 4: Deploy to Cloud Run
+  # Step 4: Deploy to Cloud Run with optimized settings
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: 'gcloud'
     args: [
       'run', 'deploy', 'rmd-to-pdf-service',
       '--image', 'gcr.io/$PROJECT_ID/rmd-to-pdf-service:$COMMIT_SHA',
-      '--region', 'us-central1',
+      '--region', 'europe-west1',
       '--platform', 'managed',
       '--allow-unauthenticated',
       '--memory', '2Gi',
       '--cpu', '2',
       '--timeout', '900',
       '--max-instances', '10',
+      '--concurrency', '10',
+      '--execution-environment', 'gen2',
+      '--cpu-boost',
       '--set-env-vars', 'GOOGLE_CLOUD_PROJECT=$PROJECT_ID'
     ]
     id: 'deploy-service'
@@ -61,7 +64,7 @@ options:
 
 # Define substitutions (default values)
 substitutions:
-  _REGION: 'us-central1'
+  _REGION: 'europe-west1'
   _SERVICE_NAME: 'rmd-to-pdf-service'
   _MEMORY: '2Gi'
   _CPU: '2'

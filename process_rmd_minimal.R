@@ -21,15 +21,19 @@ log_message <- function(message) {
 # Download file using gsutil (works with Cloud Run service account)
 download_from_gcs <- function(bucket, object, local_path) {
   cmd <- sprintf("gsutil cp gs://%s/%s %s", bucket, object, local_path)
-  result <- system(cmd, intern = TRUE)
-  return(length(result) == 0 || !any(grepl("ERROR", result)))
+  cat(sprintf("Running command: %s\n", cmd))
+  result <- system(cmd, intern = FALSE)  # Use intern = FALSE to see errors
+  cat(sprintf("Command exit code: %d\n", result))
+  return(result == 0)
 }
 
 # Upload file using gsutil
 upload_to_gcs <- function(local_path, bucket, object) {
   cmd <- sprintf("gsutil cp %s gs://%s/%s", local_path, bucket, object)
-  result <- system(cmd, intern = TRUE)
-  return(length(result) == 0 || !any(grepl("ERROR", result)))
+  cat(sprintf("Running command: %s\n", cmd))
+  result <- system(cmd, intern = FALSE)  # Use intern = FALSE to see errors
+  cat(sprintf("Command exit code: %d\n", result))
+  return(result == 0)
 }
 
 # Main processing function using gsutil
