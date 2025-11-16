@@ -103,6 +103,9 @@ deploy_service() {
         --cpu 2 \
         --timeout 900 \
         --max-instances 10 \
+        --concurrency 10 \
+        --execution-environment gen2 \
+        --cpu-boost \
         --set-env-vars "GOOGLE_CLOUD_PROJECT=${PROJECT_ID}" \
         --service-account "${SERVICE_NAME}@${PROJECT_ID}.iam.gserviceaccount.com" || {
             print_warning "Deployment with custom service account failed. Trying with default service account..."
@@ -115,6 +118,9 @@ deploy_service() {
                 --cpu 2 \
                 --timeout 900 \
                 --max-instances 10 \
+                --concurrency 10 \
+                --execution-environment gen2 \
+                --cpu-boost \
                 --set-env-vars "GOOGLE_CLOUD_PROJECT=${PROJECT_ID}"
         }
     
