@@ -1,0 +1,82 @@
+# Google Cloud Build configuration for automatic deployment
+# This file enables automatic deployment from GitHub to Google Cloud Run
+
+steps:
+  # Step 1: Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'build', 
+      '-t', 'gcr.io/$PROJECT_ID/rmd-to-pdf-service:$COMMIT_SHA',
+      '-t', 'gcr.io/$PROJECT_ID/rmd-to-pdf-service:latest',
+      '.'
+    ]
+    id: 'build-image'
+
+  # Step 2: Push the image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'push', 
+      'gcr.io/$PROJECT_ID/rmd-to-pdf-service:$COMMIT_SHA'
+    ]
+    id: 'push-image'
+    waitFor: ['build-image']
+
+  # Step 3: Push the latest tag
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'push', 
+      'gcr.io/$PROJECT_ID/rmd-to-pdf-service:latest'
+    ]
+    id: 'push-latest'
+    waitFor: ['build-image']
+
+  # Step 4: Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args: [
+      'run', 'deploy', 'rmd-to-pdf-service',
+      '--image', 'gcr.io/$PROJECT_ID/rmd-to-pdf-service:$COMMIT_SHA',
+      '--region', 'us-central1',
+      '--platform', 'managed',
+      '--allow-unauthenticated',
+      '--memory', '2Gi',
+      '--cpu', '2',
+      '--timeout', '900',
+      '--max-instances', '10',
+      '--set-env-vars', 'GOOGLE_CLOUD_PROJECT=$PROJECT_ID'
+    ]
+    id: 'deploy-service'
+    waitFor: ['push-image']
+
+# Configuration options
+options:
+  # Use higher-performance machine for faster builds
+  machineType: 'E2_HIGHCPU_8'
+  
+  # Set build timeout (30 minutes)
+  timeout: '1800s'
+  
+  # Use substitution for dynamic values
+  substitution_option: 'ALLOW_LOOSE'
+
+# Define substitutions (default values)
+substitutions:
+  _REGION: 'us-central1'
+  _SERVICE_NAME: 'rmd-to-pdf-service'
+  _MEMORY: '2Gi'
+  _CPU: '2'
+  _TIMEOUT: '900'
+  _MAX_INSTANCES: '10'
+
+# Images to be pushed to Container Registry
+images:
+  - 'gcr.io/$PROJECT_ID/rmd-to-pdf-service:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/rmd-to-pdf-service:latest'
+
+# Trigger configuration (for GitHub integration)
+# This section is used when setting up the trigger in Cloud Console
+# github:
+#   owner: 'StatistikChris'
+#   name: 'render-pdf-from-bucket-rmd'
+#   push:
+#     branch: '^master$'

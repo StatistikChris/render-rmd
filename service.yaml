@@ -1,0 +1,84 @@
+# Google Cloud Run service configuration
+# This file can be used for declarative deployment configuration
+
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: rmd-to-pdf-service
+  annotations:
+    # Cloud Run specific annotations
+    run.googleapis.com/ingress: all
+    run.googleapis.com/execution-environment: gen2
+  labels:
+    app: rmd-to-pdf-service
+    version: v1
+spec:
+  template:
+    metadata:
+      annotations:
+        # Scaling configuration
+        autoscaling.knative.dev/maxScale: "10"
+        autoscaling.knative.dev/minScale: "0"
+        
+        # Resource allocation
+        run.googleapis.com/memory: "2Gi"
+        run.googleapis.com/cpu: "2"
+        
+        # Timeout configuration
+        run.googleapis.com/timeout: "900s"
+        
+        # Execution environment
+        run.googleapis.com/execution-environment: gen2
+        
+      labels:
+        app: rmd-to-pdf-service
+        version: v1
+    spec:
+      # Service account (will use default if not specified)
+      # serviceAccountName: rmd-to-pdf-service@PROJECT_ID.iam.gserviceaccount.com
+      
+      containerConcurrency: 1000
+      timeoutSeconds: 900
+      
+      containers:
+      - image: gcr.io/PROJECT_ID/rmd-to-pdf-service:latest
+        ports:
+        - containerPort: 8080
+          name: http1
+        
+        env:
+        - name: GOOGLE_CLOUD_PROJECT
+          value: "PROJECT_ID"
+        - name: PORT
+          value: "8080"
+        
+        resources:
+          limits:
+            cpu: "2000m"
+            memory: "2Gi"
+          requests:
+            cpu: "1000m"
+            memory: "512Mi"
+        
+        # Health checks
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+  traffic:
+  - percent: 100
+    latestRevision: true
