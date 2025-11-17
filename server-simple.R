@@ -32,11 +32,11 @@ tryCatch({
   quit(status = 1)
 })
 
-# Load HTTP processing script
-log_msg("Loading HTTP processing script...")
+# Load direct processing script
+log_msg("Loading direct processing script...")
 tryCatch({
-  source("/app/process_rmd_http.R")
-  log_msg("✓ HTTP processing script loaded")
+  source("/app/process_direct.R")
+  log_msg("✓ Direct processing script loaded")
 }, error = function(e) {
   log_msg(sprintf("ERROR loading processing script: %s", e$message))
   quit(status = 1)
@@ -62,8 +62,7 @@ handle_request <- function(req) {
     # Test authentication endpoint
     log_msg("Testing authentication...")
     token <- tryCatch({
-      source("/app/process_rmd_http.R")
-      get_access_token()
+      get_token()
     }, error = function(e) {
       paste("Error:", e$message)
     })
@@ -89,9 +88,9 @@ handle_request <- function(req) {
         ), auto_unbox = TRUE)
       )
     } else {
-      log_msg("Processing RMD to PDF request (HTTP API version)...")
+      log_msg("Processing RMD to PDF request (direct version)...")
       result <- tryCatch({
-        process_rmd_to_pdf_http()
+        process_rmd_direct()
       }, error = function(e) {
         log_msg(sprintf("Processing error: %s", e$message))
         list(status = "error", message = e$message)
@@ -110,13 +109,13 @@ handle_request <- function(req) {
       status = 200L,
       headers = list("Content-Type" = "application/json"),
       body = jsonlite::toJSON(list(
-        message = "RMD to PDF Service (Simple HTTP Version)",
+        message = "RMD to PDF Service (Direct Version)",
         server_ready = server_ready,
-        method = "http_api",
+        method = "direct_api",
         endpoints = list(
           "GET /health" = "Health check",
           "GET /test-auth" = "Test authentication",
-          "POST /process" = "Process RMD file to PDF using HTTP API"
+          "POST /process" = "Download output.rmd, render to PDF, upload to bucket"
         )
       ), auto_unbox = TRUE)
     )

@@ -43,6 +43,7 @@ COPY minimal_auth.R /app/minimal_auth.R
 COPY process_rmd.R /app/process_rmd.R
 COPY process_rmd_minimal.R /app/process_rmd_minimal.R
 COPY process_rmd_http.R /app/process_rmd_http.R
+COPY process_direct.R /app/process_direct.R
 
 # Make the scripts executable
 RUN chmod +x /app/*.R
