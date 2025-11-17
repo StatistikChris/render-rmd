@@ -32,11 +32,11 @@ tryCatch({
   quit(status = 1)
 })
 
-# Load direct processing script
-log_msg("Loading direct processing script...")
+# Load working processing script (back to gsutil method)
+log_msg("Loading working processing script...")
 tryCatch({
-  source("/app/process_direct.R")
-  log_msg("✓ Direct processing script loaded")
+  source("/app/process_working.R")
+  log_msg("✓ Working processing script loaded")
 }, error = function(e) {
   log_msg(sprintf("ERROR loading processing script: %s", e$message))
   quit(status = 1)
@@ -58,22 +58,53 @@ handle_request <- function(req) {
       ), auto_unbox = TRUE)
     )
     
-  } else if (req$REQUEST_METHOD == "GET" && req$PATH_INFO == "/test-auth") {
-    # Test authentication endpoint
-    log_msg("Testing authentication...")
-    token <- tryCatch({
-      get_token()
+  } else if (req$REQUEST_METHOD == "GET" && req$PATH_INFO == "/diagnose") {
+    # Test gsutil availability and authentication
+    log_msg("Testing gsutil setup...")
+    gsutil_available <- tryCatch({
+      check_gsutil()
     }, error = function(e) {
-      paste("Error:", e$message)
+      log_msg(sprintf("Gsutil check error: %s", e$message))
+      FALSE
+    })
+    
+    gsutil_auth <- if (gsutil_available) {
+      tryCatch({
+        test_gsutil_auth()
+      }, error = function(e) {
+        log_msg(sprintf("Gsutil auth error: %s", e$message))
+        FALSE
+      })
+    } else {
+      FALSE
+    }
+    
+    list(
+      status = 200L,
+      headers = list("Content-Type" = "application/json"),
+      body = jsonlite::toJSON(list(
+        message = "Gsutil diagnostics completed",
+        gsutil_available = gsutil_available,
+        gsutil_auth = gsutil_auth,
+        note = "Check server logs for detailed results"
+      ), auto_unbox = TRUE)
+    )
+    
+  } else if (req$REQUEST_METHOD == "GET" && req$PATH_INFO == "/test-auth") {
+    # Test gsutil authentication
+    log_msg("Testing gsutil authentication...")
+    gsutil_works <- tryCatch({
+      check_gsutil() && test_gsutil_auth()
+    }, error = function(e) {
+      FALSE
     })
     
     list(
       status = 200L,
       headers = list("Content-Type" = "application/json"),
       body = jsonlite::toJSON(list(
-        message = "Authentication test",
-        has_token = !is.null(token) && !grepl("Error:", token),
-        token_length = if(is.null(token) || grepl("Error:", token)) 0 else nchar(token)
+        message = "Gsutil authentication test",
+        gsutil_working = gsutil_works
       ), auto_unbox = TRUE)
     )
     
@@ -88,9 +119,9 @@ handle_request <- function(req) {
         ), auto_unbox = TRUE)
       )
     } else {
-      log_msg("Processing RMD to PDF request (direct version)...")
+      log_msg("Processing RMD to PDF request (working method)...")
       result <- tryCatch({
-        process_rmd_direct()
+        process_rmd_working()
       }, error = function(e) {
         log_msg(sprintf("Processing error: %s", e$message))
         list(status = "error", message = e$message)
@@ -109,13 +140,14 @@ handle_request <- function(req) {
       status = 200L,
       headers = list("Content-Type" = "application/json"),
       body = jsonlite::toJSON(list(
-        message = "RMD to PDF Service (Direct Version)",
+        message = "RMD to PDF Service (Working Method)",
         server_ready = server_ready,
-        method = "direct_api",
+        method = "gsutil_working",
         endpoints = list(
           "GET /health" = "Health check",
+          "GET /diagnose" = "Run comprehensive diagnostics",
           "GET /test-auth" = "Test authentication",
-          "POST /process" = "Download output.rmd, render to PDF, upload to bucket"
+          "POST /process" = "Process using working gsutil method"
         )
       ), auto_unbox = TRUE)
     )
