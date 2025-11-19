@@ -41,27 +41,15 @@ RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] http://packages.c
 COPY install.R /app/install.R
 RUN Rscript /app/install.R
 
-# Copy all processing scripts
-COPY simple_auth.R /app/simple_auth.R
-COPY auth_helper.R /app/auth_helper.R  
-COPY minimal_auth.R /app/minimal_auth.R
-COPY process_rmd.R /app/process_rmd.R
-COPY process_rmd_minimal.R /app/process_rmd_minimal.R
-COPY process_rmd_http.R /app/process_rmd_http.R
-COPY process_direct.R /app/process_direct.R
+# Copy the processing script and server
 COPY process_working.R /app/process_working.R
+COPY server.R /app/server.R
 
 # Make the scripts executable
 RUN chmod +x /app/*.R
 
-# Copy all server scripts
-COPY server-with-logging.R /app/server-with-logging.R
-COPY server-minimal.R /app/server-minimal.R
-COPY server-simple.R /app/server-simple.R
-RUN chmod +x /app/server-*.R
-
 # Expose the port
 EXPOSE 8080
 
-# Set the default command to run the simple server (avoids build issues)
-CMD ["Rscript", "/app/server-simple.R"]
+# Set the default command to run the server
+CMD ["Rscript", "/app/server.R"]

@@ -137,25 +137,29 @@ GOOGLE_CLOUD_PROJECT_ID="your-project-id" ./deploy.sh
 ## File Structure
 
 ```
-├── process_rmd.R      # Main R script for processing
+├── process_working.R  # Core RMD to PDF conversion logic
+├── server.R           # HTTP server for Cloud Run
 ├── install.R          # R package dependencies
 ├── Dockerfile         # Docker container configuration
 ├── cloudbuild.yaml    # Google Cloud Build configuration for CI/CD
 ├── service.yaml       # Cloud Run service configuration
-├── deploy.sh          # Manual deployment script (optional)
-├── .dockerignore      # Docker build optimization
-├── .gcloudignore      # Cloud Build optimization
+├── deploy.sh          # Deployment script
 └── README.md          # This documentation
 ```
 
 ## Key Components
 
-### `process_rmd.R`
-- Main processing logic
-- Downloads RMD files from Cloud Storage
+### `process_working.R`
+- Core RMD to PDF conversion logic
+- Downloads RMD files from Cloud Storage using gsutil
 - Renders PDFs using rmarkdown
-- Uploads results back to the bucket
+- Uploads results back to the bucket using gsutil
 - Includes error handling and logging
+
+### `server.R`
+- Simple HTTP server for Cloud Run
+- Handles health checks and processing requests
+- Integrates with the processing logic
 
 ### `install.R`
 - Defines required R packages
