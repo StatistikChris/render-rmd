@@ -96,6 +96,7 @@ handle_request <- function(req) {
   }
 }
 
+process_rmd_working()
 log_msg("=== Server initialization complete ===")
 log_msg(sprintf("Server ready on http://0.0.0.0:%d", port))
 
